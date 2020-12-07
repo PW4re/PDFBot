@@ -23,9 +23,10 @@ public class MessageManager {;
 
 
 
-    public PartialBotApiMethod<Message> processMessage(User user, UserConditions condition, Long chatId) {
+    public PartialBotApiMethod<Message> processMessage(User user, Long chatId) {
         PartialBotApiMethod result = null;
-        ArrayDeque<InputStream> inputStreams = user.getDocs();
+        UserConditions condition = user.getCondition();
+        var inputStreams = user.getDocsData();
         if (condition == UserConditions.FINISHING_MERGE) {
             result = processTextMessageToMerge(user.getName(), inputStreams, chatId);
         }
@@ -38,7 +39,7 @@ public class MessageManager {;
     }
 
     private PartialBotApiMethod<Message> processTextMessageToMerge(String userName,
-                                                                   ArrayDeque<InputStream> inputStreams, long chatId) {
+                                                                   ArrayList<InputStream> inputStreams, long chatId) {
         merger.setUserName(userName);
         for (InputStream inputStream : inputStreams)
             merger.addToMerge(inputStream);
@@ -47,7 +48,7 @@ public class MessageManager {;
     }
 
     private PartialBotApiMethod<Message> processTextMessageToConvert(String userName,
-                                                                     ArrayDeque<InputStream> inputStreams, long chatId) {
+                                                                     ArrayList<InputStream> inputStreams, long chatId) {
         for (InputStream inputStream : inputStreams)
             converter.addToConvert(inputStream);
         ByteArrayInputStream byteArrayInStream = converter.convert();
