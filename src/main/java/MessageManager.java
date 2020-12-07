@@ -23,34 +23,35 @@ public class MessageManager {;
 
 
 
-    public PartialBotApiMethod<Message> processMessage(User user, UserConditions condition, Long chatId) {
+    public PartialBotApiMethod<Message> processMessage(User user, Long chatId) {
         PartialBotApiMethod result = null;
-        ArrayDeque<InputStream> inputStreams = user.getDocs();
+        UserConditions condition = user.getCondition();
+        var inputStreams = user.getDocsData();
+        String resultFileName = user.getResultFileName();
         if (condition == UserConditions.FINISHING_MERGE) {
-            result = processTextMessageToMerge(user.getName(), inputStreams, chatId);
+            result = processTextMessageToMerge(resultFileName, inputStreams, chatId);
         }
 
         if (condition == UserConditions.FINISHING_CONVERT) {
-            result = processTextMessageToConvert(user.getName(), inputStreams, chatId);
+            result = processTextMessageToConvert(resultFileName, inputStreams, chatId);
         }
 
         return result;
     }
 
-    private PartialBotApiMethod<Message> processTextMessageToMerge(String userName,
-                                                                   ArrayDeque<InputStream> inputStreams, long chatId) {
-        merger.setUserName(userName);
+    private PartialBotApiMethod<Message> processTextMessageToMerge(String resultFileName,
+                                                                   ArrayList<InputStream> inputStreams, long chatId) {
         for (InputStream inputStream : inputStreams)
             merger.addToMerge(inputStream);
         ByteArrayInputStream byteArrayInStream = merger.merge();
-        return new SendDocument().setChatId(chatId).setDocument("abc.pdf", byteArrayInStream);
+        return new SendDocument().setChatId(chatId).setDocument(resultFileName, byteArrayInStream);
     }
 
-    private PartialBotApiMethod<Message> processTextMessageToConvert(String userName,
-                                                                     ArrayDeque<InputStream> inputStreams, long chatId) {
+    private PartialBotApiMethod<Message> processTextMessageToConvert(String resultFileName,
+                                                                     ArrayList<InputStream> inputStreams, long chatId) {
         for (InputStream inputStream : inputStreams)
             converter.addToConvert(inputStream);
         ByteArrayInputStream byteArrayInStream = converter.convert();
-        return new SendDocument().setChatId(chatId).setDocument("converted.pdf", byteArrayInStream);
+        return new SendDocument().setChatId(chatId).setDocument(resultFileName, byteArrayInStream);
     }
 }

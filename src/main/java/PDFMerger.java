@@ -18,7 +18,6 @@ public class PDFMerger {
 
     public void addToMerge(InputStream inputStream) {
         merger.addSource(inputStream);
-        System.out.println("added");
     }
 
     public ByteArrayInputStream merge() {

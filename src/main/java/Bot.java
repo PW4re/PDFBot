@@ -2,11 +2,17 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.glassfish.grizzly.utils.Pair;
 import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.methods.PartialBotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Document;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -15,6 +21,7 @@ public class Bot {
     private HashMap<String, User> users;
     private MessageManager messageManager;
     private String token;
+    private ArrayList<String> fileFormats = new ArrayList<String>();
 
     public Bot(String token) {
         this.token = token;
@@ -29,6 +36,7 @@ public class Bot {
         JSONObject jsonResult = new JSONObject(res);
         JSONObject path = jsonResult.getJSONObject("result");
         String file_path = path.getString("file_path");
+        System.out.println(file_path);
         return new URL("https://api.telegram.org/file/bot" + token + "/" + file_path);
     }
 
@@ -36,31 +44,66 @@ public class Bot {
         users.remove(name);
     }
 
-    public PartialBotApiMethod<Message> readMessage(Update update) throws IOException {
-        Message message = update.getMessage();
-        String name = message.getChat().getUserName();
-        if (!users.containsKey(name))
-            users.put(name, new User(name));
-        if (update.getMessage().hasDocument()){
-            String fileId = message.getDocument().getFileId();
-            users.get(name).addDoc(uploadFile(fileId).openStream());
+    private Pair<String, String> parseCommand(String message) throws Exception {
+        if (message.equals(""))
+            return new Pair<>("", "");
+        String[] parts = message.split(" ");
+        String command = parts[0];
+        if (parts.length == 1)
+            return new Pair<>(command, "");
+        String fileName = String.join(" ", Arrays.copyOfRange(parts, 1, parts.length));
+        Pattern pattern = Pattern.compile("[/\\:?*\"<>|]");
+        Matcher matcher = pattern.matcher(fileName);
+        if (fileName.length() > 255 || matcher.find())
+            throw new Exception("Invalid name!");
+
+        return new Pair<>(command, fileName);
+    }
+
+    private void takePhotoOrDocument(Message message, String name) throws IOException {
+        if (message.hasDocument()){
+            Document doc = message.getDocument();
+            String fileId = doc.getFileId();
+            String docName = doc.getFileName();
+            users.get(name).addDoc(docName, uploadFile(fileId).openStream());
             users.get(name).setCondition(UserConditions.ADDING);
         }
         else if (message.hasPhoto()) {
             int max = 0;
-            PhotoSize highnestQuality = null;
+            PhotoSize highestQuality = null;
             for (PhotoSize photoSize : message.getPhoto()) {
                 if (photoSize.getHeight() * photoSize.getWidth() >= max) {
                     max = photoSize.getHeight() * photoSize.getWidth();
-                    highnestQuality = photoSize;
+                    highestQuality = photoSize;
                 }
             }
-            assert highnestQuality != null;
-            users.get(name).addDoc(uploadFile(highnestQuality.getFileId()).openStream());
+            assert highestQuality != null;
+            var uniqueId = highestQuality.getFileUniqueId();
+            users.get(name).addDoc(uniqueId + ".jpg", uploadFile(highestQuality.getFileId()).openStream());
             users.get(name).setCondition(UserConditions.ADDING);
         }
+    }
+
+    public PartialBotApiMethod<Message> readMessage(Update update) throws IOException {
+        Message message = update.getMessage();
+        String fileName = "";
+        String name = message.getChatId().toString();
+        if (!users.containsKey(name))
+            users.put(name, new User());
+        if (message.hasPhoto() || message.hasDocument())
+            takePhotoOrDocument(message, name);
         else if (message.hasText()){
-            switch (message.getText()) {
+            Pair<String, String> commandAndFileName = null;
+            try {
+                commandAndFileName = parseCommand(message.getText());
+            } catch (Exception e) {
+                return new SendMessage().setChatId(message.getChatId()).setText("Длина имени файла не должна " +
+                        "превышать 255 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|.");
+            }
+            String command = commandAndFileName.getFirst();
+            fileName = commandAndFileName.getSecond();
+            users.get(name).setResultFileName(fileName);
+            switch (command) {
                 case "/merge":
                     if (users.get(name).getCondition() == UserConditions.WAITING)
                         return new SendMessage().setChatId(message.getChatId())
@@ -68,9 +111,9 @@ public class Bot {
                     users.get(name).setCondition(UserConditions.FINISHING_MERGE);
                     break;
                 case "/convert":
-                        if (users.get(name).getCondition() == UserConditions.WAITING)
-                            return new SendMessage().setChatId(message.getChatId())
-                                    .setText("Пожалуйста, добавьте фото или документ для конвертации в PDF-формат");
+                    if (users.get(name).getCondition() == UserConditions.WAITING)
+                        return new SendMessage().setChatId(message.getChatId())
+                                .setText("Пожалуйста, добавьте фото или документ для конвертации в PDF-формат");
                     users.get(name).setCondition(UserConditions.FINISHING_CONVERT);
                     break;
                 case "/help":
@@ -78,11 +121,33 @@ public class Bot {
                             "\n\t/convert - сконвертировать файлы в .pdf. Доступные форматы для конвертации: jpg, jpeg, png";
                     return new SendMessage().setChatId(message.getChatId())
                             .setText(helpMessage);
+                case "/docs":
+                    if (users.get(name).getCondition() == UserConditions.ADDING) {
+                        if (users.get(name).getDocsNames().isEmpty())
+                            return new SendMessage().setChatId(message.getChatId()).setText("Вы пока что не добавили файлов!");
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("Текущие добавленные файлы:\n");
+                        for (var i : users.get(name).getDocsNames()) {
+                            sb.append(i);
+                            sb.append(", ");
+                            sb.append("\n");
+                        }
+                        sb.delete(sb.length()-3, sb.length() - 1);
+                        return new SendMessage().setChatId(message.getChatId()).setText(sb.toString());
+                    }
+                    break;
+                case "/removelast":
+                    if (users.get(name).getDocsNames().isEmpty())
+                        return new SendMessage().setChatId(message.getChatId()).setText("Вы пока что не добавили файлов!");
+                    else {
+                        users.get(name).removeLastDoc();
+                        return new SendMessage().setChatId(message.getChatId()).setText("Последний файл успешно удалён.");
+                    }
                 default:
                     return new SendMessage().setChatId(update.getMessage().getChatId())
                             .setText("Я не знаю такой команды((");
             }
         }
-        return messageManager.processMessage(users.get(name), users.get(name).getCondition(), message.getChatId());
+        return messageManager.processMessage(users.get(name), message.getChatId());
     }
 }
