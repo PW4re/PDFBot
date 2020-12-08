@@ -1,16 +1,10 @@
 import java.io.*;
-import java.net.URL;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 
-import com.itextpdf.text.DocumentException;
-import jdk.jshell.spi.ExecutionControl.NotImplementedException;
-import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.methods.PartialBotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.PhotoSize;
-import org.telegram.telegrambots.meta.api.objects.Update;
 
 public class MessageManager {;
     private PDFMerger merger;
@@ -24,34 +18,47 @@ public class MessageManager {;
 
 
     public PartialBotApiMethod<Message> processMessage(User user, Long chatId) {
-        PartialBotApiMethod result = null;
+        PartialBotApiMethod<Message> result = null;
         UserConditions condition = user.getCondition();
-        var inputStreams = user.getDocsData();
+        ArrayDeque<DocumentInfo> docs = user.getDocumentInfos();
         String resultFileName = user.getResultFileName();
         if (condition == UserConditions.FINISHING_MERGE) {
-            result = processTextMessageToMerge(resultFileName, inputStreams, chatId);
+            result = processTextMessageToMerge(resultFileName, docs, chatId);
+            user.clearDocs();
         }
 
         if (condition == UserConditions.FINISHING_CONVERT) {
-            result = processTextMessageToConvert(resultFileName, inputStreams, chatId);
+            result = processTextMessageToConvert(resultFileName, docs, chatId);
+            user.clearDocs();
         }
+
 
         return result;
     }
 
-    private PartialBotApiMethod<Message> processTextMessageToMerge(String resultFileName,
-                                                                   ArrayList<InputStream> inputStreams, long chatId) {
-        for (InputStream inputStream : inputStreams)
-            merger.addToMerge(inputStream);
+    private PartialBotApiMethod<Message> processTextMessageToMerge(String fileName,
+                                                                   ArrayDeque<DocumentInfo> docs, long chatId) {
+        for (DocumentInfo doc : docs)
+            merger.addToMerge(doc);
         ByteArrayInputStream byteArrayInStream = merger.merge();
-        return new SendDocument().setChatId(chatId).setDocument(resultFileName, byteArrayInStream);
+        if (fileIsEmpty(byteArrayInStream))
+            return new SendMessage().setChatId(chatId).setText("Среди добавленных файлов не " +
+                    "нашлось подходящий для склейки.");
+        return new SendDocument().setChatId(chatId).setDocument(fileName, byteArrayInStream);
     }
 
-    private PartialBotApiMethod<Message> processTextMessageToConvert(String resultFileName,
-                                                                     ArrayList<InputStream> inputStreams, long chatId) {
-        for (InputStream inputStream : inputStreams)
-            converter.addToConvert(inputStream);
+    private PartialBotApiMethod<Message> processTextMessageToConvert(String fileName,
+                                                                     ArrayDeque<DocumentInfo> docs, long chatId) {
+        for (DocumentInfo doc : docs)
+            converter.addToConvert(doc);
         ByteArrayInputStream byteArrayInStream = converter.convert();
-        return new SendDocument().setChatId(chatId).setDocument(resultFileName, byteArrayInStream);
+        if (fileIsEmpty(byteArrayInStream))
+            return new SendMessage().setChatId(chatId).setText("Среди добавленных файлов не " +
+                    "нашлось подходящий для конвертирования.");
+        return new SendDocument().setChatId(chatId).setDocument(fileName, byteArrayInStream);
+    }
+
+    private boolean fileIsEmpty(ByteArrayInputStream byteArrayInputStream) {
+        return byteArrayInputStream.available() == 0;
     }
 }

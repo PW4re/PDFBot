@@ -5,39 +5,56 @@ import java.io.*;
 import java.util.ArrayList;
 
 public class Converter {
-    private ArrayList<InputStream> inputStreams;
+    private ArrayList<DocumentInfo> docs;
     private PDFMerger merger;
     ArrayList<ByteArrayInputStream> results;
 
     public Converter() {
-        inputStreams = new ArrayList<>();
+        docs = new ArrayList<>();
         merger = new PDFMerger();
         results = new ArrayList<>();
     }
 
-    public void addToConvert(InputStream inputStream) { inputStreams.add(inputStream); }
+    public void addToConvert(DocumentInfo doc) {
+        docs.add(doc);
+    }
 
     public ByteArrayInputStream convert() {
-        if (inputStreams.isEmpty())
+        if (docs.isEmpty())
             return null;
-        for (InputStream inStream : inputStreams) { // Нужно уметь различать фото и текст
+
+        for (DocumentInfo doc : docs) {
             try {
-                results.add(convertImage(inStream));
-                //convertText(inStream);
+                String name = doc.getName();
+
+                if (isValidPhotoFormat(name))
+                    results.add(convertImage(doc.getData()));
+
+                if(isValidTextFormat(name))
+                    results.add(convertText(doc.getData()));
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        inputStreams.clear();
+        docs.clear();
         if (results.size() == 1)
             return results.remove(0);
         else {
             for (ByteArrayInputStream result : results) {
-                merger.addToMerge(result);
+                merger.addToMerge(new DocumentInfo(" ", result));
             }
             results.clear();
             return merger.merge();
         }
+    }
+
+    public boolean isValidTextFormat(String docName){
+        return docName.endsWith(".txt");
+    }
+
+    public boolean isValidPhotoFormat(String docName){
+        return docName.endsWith(".png") || docName.endsWith(".jpg") || docName.endsWith(".jpeg");
     }
 
     private ByteArrayInputStream convertImage(InputStream inputStream) throws IOException, DocumentException {

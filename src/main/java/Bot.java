@@ -54,7 +54,7 @@ public class Bot {
         String fileName = String.join(" ", Arrays.copyOfRange(parts, 1, parts.length));
         Pattern pattern = Pattern.compile("[/\\:?*\"<>|]");
         Matcher matcher = pattern.matcher(fileName);
-        if (fileName.length() > 255 || matcher.find())
+        if (fileName.length() > 80 || matcher.find())
             throw new Exception("Invalid name!");
 
         return new Pair<>(command, fileName);
@@ -84,24 +84,43 @@ public class Bot {
         }
     }
 
+    private String getCurrentDocumentsNames(ArrayList<String> names) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Текущие добавленные файлы:\n");
+        for (var i : names) {
+            sb.append(i);
+            sb.append(", ");
+            sb.append("\n");
+        }
+        sb.delete(sb.length()-3, sb.length() - 1);
+
+        return sb.toString();
+    }
+
+    private String getHelpString() {
+        return "Доступные команды:\n\t/help - Как использовать бота.\n\t/merge - Соединить несколько .pdf файлов в один." +
+                "\n\t/convert - сконвертировать файлы в .pdf. Доступные форматы для конвертации: jpg, jpeg, png";
+
+    }
+
     public PartialBotApiMethod<Message> readMessage(Update update) throws IOException {
         Message message = update.getMessage();
-        String fileName = "";
         String name = message.getChatId().toString();
         if (!users.containsKey(name))
             users.put(name, new User());
         if (message.hasPhoto() || message.hasDocument())
             takePhotoOrDocument(message, name);
+
         else if (message.hasText()){
             Pair<String, String> commandAndFileName = null;
             try {
                 commandAndFileName = parseCommand(message.getText());
             } catch (Exception e) {
                 return new SendMessage().setChatId(message.getChatId()).setText("Длина имени файла не должна " +
-                        "превышать 255 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|.");
+                        "превышать 80 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|.");
             }
             String command = commandAndFileName.getFirst();
-            fileName = commandAndFileName.getSecond();
+            String fileName = commandAndFileName.getSecond();
             users.get(name).setResultFileName(fileName);
             switch (command) {
                 case "/merge":
@@ -117,23 +136,15 @@ public class Bot {
                     users.get(name).setCondition(UserConditions.FINISHING_CONVERT);
                     break;
                 case "/help":
-                    String helpMessage = "Доступные команды:\n\t/help - Как использовать бота.\n\t/merge - Соединить несколько .pdf файлов в один." +
-                            "\n\t/convert - сконвертировать файлы в .pdf. Доступные форматы для конвертации: jpg, jpeg, png";
                     return new SendMessage().setChatId(message.getChatId())
-                            .setText(helpMessage);
+                            .setText(getHelpString());
                 case "/docs":
+                    if (users.get(name).getDocsNames().isEmpty())
+                        return new SendMessage().setChatId(message.getChatId()).setText("Вы пока что не добавили файлов!");
+
                     if (users.get(name).getCondition() == UserConditions.ADDING) {
-                        if (users.get(name).getDocsNames().isEmpty())
-                            return new SendMessage().setChatId(message.getChatId()).setText("Вы пока что не добавили файлов!");
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("Текущие добавленные файлы:\n");
-                        for (var i : users.get(name).getDocsNames()) {
-                            sb.append(i);
-                            sb.append(", ");
-                            sb.append("\n");
-                        }
-                        sb.delete(sb.length()-3, sb.length() - 1);
-                        return new SendMessage().setChatId(message.getChatId()).setText(sb.toString());
+                        String fileNames = getCurrentDocumentsNames(users.get(name).getDocsNames());
+                        return new SendMessage().setChatId(message.getChatId()).setText(fileNames);
                     }
                     break;
                 case "/removelast":
