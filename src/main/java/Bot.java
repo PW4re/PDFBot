@@ -110,18 +110,18 @@ public class Bot {
             users.put(name, new User());
         if (message.hasPhoto() || message.hasDocument())
             takePhotoOrDocument(message, name);
-
         else if (message.hasText()){
-            Pair<String, String> commandAndFileName = null;
+            Pair<String, String> commandAndFileName;
             try {
                 commandAndFileName = parseCommand(message.getText());
             } catch (Exception e) {
                 return new SendMessage().setChatId(message.getChatId()).setText("Длина имени файла не должна " +
-                        "превышать 80 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|.");
+                        "превышать 80 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|");
             }
             String command = commandAndFileName.getFirst();
             String fileName = commandAndFileName.getSecond();
             users.get(name).setResultFileName(fileName);
+
             switch (command) {
                 case "/merge":
                     if (users.get(name).getCondition() == UserConditions.WAITING)
@@ -154,6 +154,12 @@ public class Bot {
                         users.get(name).removeLastDoc();
                         return new SendMessage().setChatId(message.getChatId()).setText("Последний файл успешно удалён.");
                     }
+                case "/bug_report":
+
+                case "/next_bug":
+                    
+                case "/bug_list":
+
                 default:
                     return new SendMessage().setChatId(update.getMessage().getChatId())
                             .setText("Я не знаю такой команды((");

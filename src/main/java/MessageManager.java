@@ -59,6 +59,6 @@ public class MessageManager {;
     }
 
     private boolean fileIsEmpty(ByteArrayInputStream byteArrayInputStream) {
-        return byteArrayInputStream.available() == 0;
+        return byteArrayInputStream == null || byteArrayInputStream.available() == 0;
     }
 }
