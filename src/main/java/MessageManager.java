@@ -25,11 +25,13 @@ public class MessageManager {;
         if (condition == UserConditions.FINISHING_MERGE) {
             result = processTextMessageToMerge(resultFileName, docs, chatId);
             user.clearDocs();
+            user.setDefaultName();
         }
 
         if (condition == UserConditions.FINISHING_CONVERT) {
             result = processTextMessageToConvert(resultFileName, docs, chatId);
             user.clearDocs();
+            user.setDefaultName();
         }
 
 

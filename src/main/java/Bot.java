@@ -157,12 +157,15 @@ public class Bot {
                 case "/bug_report":
 
                 case "/next_bug":
-                    
-                case "/bug_list":
 
+                case "/reverse":
+                    users.get(name).reverseDocs();
+                    break;
                 default:
+                    users.get(name).setDefaultName();
                     return new SendMessage().setChatId(update.getMessage().getChatId())
                             .setText("Я не знаю такой команды((");
+
             }
         }
         return messageManager.processMessage(users.get(name), message.getChatId());

@@ -42,7 +42,7 @@ public class Converter {
             return results.remove(0);
         else {
             for (ByteArrayInputStream result : results) {
-                merger.addToMerge(new DocumentInfo(" ", result));
+                merger.addToMerge(new DocumentInfo("name.pdf", result));
             }
             results.clear();
             return merger.merge();

@@ -1,15 +1,15 @@
+import javax.print.Doc;
 import javax.swing.text.Document;
 import java.io.InputStream;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
+import java.util.*;
 
 public class User {
-    private ArrayDeque<DocumentInfo> usersDocs = new ArrayDeque<DocumentInfo>();
+    private ArrayDeque<DocumentInfo> usersDocs = new ArrayDeque<>();
     private UserConditions currentCondition = UserConditions.WAITING;
     private String resultFileName;
 
     public User() {
-        resultFileName = "result.pdf";
+        setDefaultName();
     }
 
     public String getResultFileName() { return resultFileName; }
@@ -19,6 +19,7 @@ public class User {
             resultFileName  = name.endsWith(".pdf") ? name : name + ".pdf";
     }
 
+    public void setDefaultName() { resultFileName = "result.pdf"; }
 
     public UserConditions getCondition() {
         return currentCondition;
@@ -34,6 +35,15 @@ public class User {
             docsData.add(i.getData());
         }
         return docsData;
+    }
+
+    public void reverseDocs() {
+        ArrayDeque<DocumentInfo> reversedQueue = new ArrayDeque<>();
+        for (Iterator<DocumentInfo> it = usersDocs.descendingIterator(); it.hasNext(); ) {
+            DocumentInfo dInfo = it.next();
+            reversedQueue.add(dInfo);
+        }
+        usersDocs = reversedQueue;
     }
 
     public ArrayDeque<DocumentInfo> getDocumentInfos()
@@ -58,7 +68,7 @@ public class User {
     }
 
     public void clearDocs(){
-        usersDocs = new ArrayDeque<DocumentInfo>();
+        usersDocs = new ArrayDeque<>();
     }
 
     public void setCondition(UserConditions condition){
