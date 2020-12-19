@@ -7,10 +7,16 @@ public class User {
     private ArrayDeque<DocumentInfo> usersDocs = new ArrayDeque<>();
     private UserConditions currentCondition = UserConditions.WAITING;
     private String resultFileName;
+    private Long lastActionTime;
 
     public User() {
         setDefaultName();
+        lastActionTime = System.currentTimeMillis();
     }
+
+    public void setLastActionTime(long time) { lastActionTime = time; }
+
+    public Long getLastActionTime() { return lastActionTime; }
 
     public String getResultFileName() { return resultFileName; }
 

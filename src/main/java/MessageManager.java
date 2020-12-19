@@ -15,8 +15,6 @@ public class MessageManager {;
         converter = new Converter();
     }
 
-
-
     public PartialBotApiMethod<Message> processMessage(User user, Long chatId) {
         PartialBotApiMethod<Message> result = null;
         UserConditions condition = user.getCondition();
@@ -33,7 +31,6 @@ public class MessageManager {;
             user.clearDocs();
             user.setDefaultName();
         }
-
 
         return result;
     }
