@@ -6,18 +6,14 @@ import java.io.File;
 
 public class PDFMerger {
     private PDFMergerUtility merger;
-    private String userName;
 
     public PDFMerger() {
         merger = new PDFMergerUtility();
     }
 
-    public void setUserName(String name) {
-        userName = name;
-    }
-
-    public void addToMerge(InputStream inputStream) {
-        merger.addSource(inputStream);
+    public void addToMerge(DocumentInfo doc) {
+        if (doc.getName().endsWith(".pdf"))
+            merger.addSource(doc.getData());
     }
 
     public ByteArrayInputStream merge() {
