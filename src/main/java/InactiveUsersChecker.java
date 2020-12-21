@@ -1,5 +1,3 @@
-import org.checkerframework.checker.units.qual.A;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,12 +15,14 @@ public class InactiveUsersChecker implements Runnable {
     @Override
     public void run() {
         while(true){
+            ReentrantLock locker = new ReentrantLock();
             try {
-//                ReentrantLock locker
-                Thread.sleep(1000);
+                Thread.sleep(60000);
+                locker.lock();
                 checkInactiveUsers();
-            } catch (InterruptedException ignore) {
-
+            } catch (InterruptedException ignore) { }
+            finally {
+                locker.unlock();
             }
         }
     }

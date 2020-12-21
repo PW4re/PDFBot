@@ -3,4 +3,5 @@ public enum UserConditions {
     ADDING,
     FINISHING_MERGE,
     FINISHING_CONVERT,
+    WAIT_REPORT
 }

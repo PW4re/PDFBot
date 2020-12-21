@@ -4,12 +4,11 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.sql.Connection;
 
-import jdk.jshell.spi.ExecutionControl;
 import org.glassfish.grizzly.utils.Pair;
 import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.methods.PartialBotApiMethod;
@@ -21,6 +20,8 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
+import javax.print.DocFlavor;
+
 public class Bot {
     private HashMap<String, User> users;
     private MessageManager messageManager;
@@ -28,7 +29,8 @@ public class Bot {
     private ArrayList<KeyboardRow> keyboard = new ArrayList<>();
     private KeyboardRow firstRow = new KeyboardRow();
     private KeyboardRow secondRow = new KeyboardRow();
-    ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
+    private ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
+
 
     public Bot(String token) {
         this.token = token;
@@ -56,7 +58,7 @@ public class Bot {
         users.remove(name);
     }
 
-    private Pair<String, String> parseCommand(String message) throws Exception {
+    private Pair<String, String> parseCommand(String message) {
         if (message.equals(""))
             return new Pair<>("", "");
         String[] parts = message.split(" ");
@@ -64,12 +66,23 @@ public class Bot {
         if (parts.length == 1)
             return new Pair<>(command, "");
         String fileName = String.join(" ", Arrays.copyOfRange(parts, 1, parts.length));
-        Pattern pattern = Pattern.compile("[/\\:?*\"<>|]");
-        Matcher matcher = pattern.matcher(fileName);
-        if (fileName.length() > 80 || matcher.find())
-            throw new Exception("Invalid name!");
 
         return new Pair<>(command, fileName);
+    }
+
+    private boolean isCorrectFileName(String fileName) {
+        Pattern pattern = Pattern.compile("[/\\:?*\"<>|]");
+        Matcher matcher = pattern.matcher(fileName);
+
+        return !(fileName.length() > 80 || matcher.find());
+    }
+
+    private boolean isCorrectReport(String report) {
+        return report.length() != 0;
+    }
+
+    private void writeReportToDataBase(String userName, String report) {
+
     }
 
     private void takePhotoOrDocument(Message message, String name) throws IOException {
@@ -124,6 +137,7 @@ public class Bot {
     public PartialBotApiMethod<Message> readMessage(Update update) throws IOException {
         Message message = update.getMessage();
         String chatId = message.getChatId().toString();
+        String userName = message.getChat().getUserName();
         if (!users.containsKey(chatId)) {
             users.put(chatId, new User());
         }
@@ -134,31 +148,30 @@ public class Bot {
             return new SendMessage().setChatId(chatId).setText("Добавлено").setReplyMarkup(replyKeyboardMarkup);
         }
         else if (message.hasText()){
-            Pair<String, String> commandAndFileName;
-            try {
-                commandAndFileName = parseCommand(message.getText());
-            } catch (Exception e) {
-                return new SendMessage().setChatId(message.getChatId()).setText("Длина имени файла не должна " +
-                        "превышать 80 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|");
-            }
-            String command = commandAndFileName.getFirst();
-            String fileName = commandAndFileName.getSecond();
-            users.get(chatId).setResultFileName(fileName);
-
+            Pair<String, String> commandAndText = parseCommand(message.getText());
+            String command = commandAndText.getFirst();
+            String text = commandAndText.getSecond();
             switch (command) {
-
                 case "/merge":
                     if (users.get(chatId).getCondition() == UserConditions.WAITING)
                         return new SendMessage().setChatId(message.getChatId())
                                 .setText("Пожалуйста, добавьте PDF-файлы для склейки");
+                    if (!isCorrectFileName(text))
+                        return new SendMessage().setChatId(message.getChatId()).setText("Длина имени файла не должна " +
+                                "превышать 80 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|");
                     users.get(chatId).setCondition(UserConditions.FINISHING_MERGE);
+                    users.get(chatId).setResultFileName(text);
                     break;
 
                 case "/convert":
                     if (users.get(chatId).getCondition() == UserConditions.WAITING)
                         return new SendMessage().setChatId(message.getChatId())
                                 .setText("Пожалуйста, добавьте фото или документ для конвертации в PDF-формат");
+                    if (!isCorrectFileName(text))
+                        return new SendMessage().setChatId(message.getChatId()).setText("Длина имени файла не должна " +
+                                "превышать 80 символов, в имени файла не должны встречаться символы: /:\\?*\"<>|");
                     users.get(chatId).setCondition(UserConditions.FINISHING_CONVERT);
+                    users.get(chatId).setResultFileName(text);
                     break;
 
                 case "/help":
@@ -187,13 +200,15 @@ public class Bot {
                     users.get(chatId).clearDocs();
                     return new SendMessage().setChatId(message.getChatId()).setText("Файлы успешно удалены");
 
-                case "/bug_report":
-
-                case "/next_bug":
-
+                case "/report":
+                    if (!isCorrectReport(text))
+                        return new SendMessage().setChatId(message.getChatId()).setText("Пожалуйста, добавьте " +
+                                "сообщение после команды /report");
+                    writeReportToDataBase(userName, text);
+                    return new SendMessage().setChatId(message.getChatId()).setText("Ваш отзыв принят");
                 case "/reverse":
                     users.get(chatId).reverseDocs();
-                    break;
+                    return null;
                 default:
                     users.get(chatId).setDefaultName();
 
