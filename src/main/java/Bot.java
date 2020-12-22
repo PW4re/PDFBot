@@ -1,14 +1,17 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Array;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.sql.Connection;
 
+import org.apache.commons.codec.digest.MessageDigestAlgorithms;
 import org.glassfish.grizzly.utils.Pair;
 import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.methods.PartialBotApiMethod;
@@ -20,20 +23,19 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
-import javax.print.DocFlavor;
-
-public class Bot {
+public final class Bot {
     private HashMap<String, User> users;
     private MessageManager messageManager;
     private String token;
     private ArrayList<KeyboardRow> keyboard = new ArrayList<>();
     private KeyboardRow firstRow = new KeyboardRow();
-    private KeyboardRow secondRow = new KeyboardRow();
     private ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
+    private String[] moderatorsChatIds;
+    private Random rndGenerator = new Random();
 
-
-    public Bot(String token) {
+    public Bot(String token, String[] moderatorsChatIds) {
         this.token = token;
+        this.moderatorsChatIds = moderatorsChatIds;
         messageManager = new MessageManager();
         users = new HashMap<>();
         replyKeyboardMarkup.setSelective(true);
@@ -81,8 +83,11 @@ public class Bot {
         return report.length() != 0;
     }
 
-    private void writeReportToDataBase(String userName, String report) {
-
+    private SendMessage sendMessageToModerators(String report, String author) {
+        int num = rndGenerator.nextInt(2);
+        System.out.println(num);
+        return new SendMessage().setChatId(moderatorsChatIds[num])
+                .setText(String.format("#report from %s\n%s", author, report));
     }
 
     private void takePhotoOrDocument(Message message, String name) throws IOException {
@@ -204,8 +209,7 @@ public class Bot {
                     if (!isCorrectReport(text))
                         return new SendMessage().setChatId(message.getChatId()).setText("Пожалуйста, добавьте " +
                                 "сообщение после команды /report");
-                    writeReportToDataBase(userName, text);
-                    return new SendMessage().setChatId(message.getChatId()).setText("Ваш отзыв принят");
+                    return sendMessageToModerators(text, userName);
                 case "/reverse":
                     users.get(chatId).reverseDocs();
                     return null;

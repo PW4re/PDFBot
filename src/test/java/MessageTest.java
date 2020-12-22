@@ -18,7 +18,7 @@ public class MessageTest {
 
     @org.junit.BeforeClass
     public static void setUp() {
-        bot = new Bot("myToken");
+        bot = new Bot("myToken", new String[] {"a", "b"});
         update = Mockito.mock(Update.class);
         message = Mockito.mock(Message.class);
     }

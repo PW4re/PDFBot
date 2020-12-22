@@ -7,7 +7,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
 
@@ -15,7 +14,7 @@ import java.io.IOException;
 public class Telebot extends TelegramLongPollingBot {
     private static Bot bot;
     private static String token;
-
+    private static String[] moderatorsChatIds;
 
 
     public Telebot() {
@@ -26,7 +25,8 @@ public class Telebot extends TelegramLongPollingBot {
         ApiContextInitializer.init();
         TelegramBotsApi botsApi = new TelegramBotsApi();
         token = args[0];
-        bot = new Bot(token);
+        moderatorsChatIds = new String[] { args[1], args[2] };
+        bot = new Bot(token, moderatorsChatIds);
         try {
             botsApi.registerBot(new Telebot());
         } catch (TelegramApiException ex) {
